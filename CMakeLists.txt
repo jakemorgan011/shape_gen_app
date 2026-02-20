@@ -85,6 +85,8 @@ add_executable(${PROJECT_NAME}
     src/AudioEngine.h
     src/ModelLoader.cpp
     src/ModelLoader.h
+    src/MeshBounds.cpp
+    src/MeshBounds.h
 )
 
 target_include_directories(${PROJECT_NAME}
