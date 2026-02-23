@@ -10,12 +10,16 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "ModelLoader.h"
 #include "MeshBounds.h"
+#include "ShapeTrainer.h"
 #include <memory>
 
 class GLCanvas : public wxGLCanvas {
 public:
-    GLCanvas(wxWindow* parent, const wxGLAttributes& canvasAttrs);
+    GLCanvas(wxWindow* parent, const wxGLAttributes& canvasAttrs,
+             ShapeTrainer* trainer = nullptr);
     virtual ~GLCanvas();
+
+    std::vector<AnchorData> CollectAnchorData() const;
 
 private:
     void OnPaint(wxPaintEvent& event);
@@ -111,6 +115,8 @@ private:
     wxCursor m_cursorDefault;
     wxCursor m_cursorHover;
     wxCursor m_cursorDrag;
+
+    ShapeTrainer* m_trainer = nullptr;
 
     wxDECLARE_EVENT_TABLE();
 };

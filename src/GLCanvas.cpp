@@ -1,5 +1,6 @@
 #include "GLCanvas.h"
 #include "MeshBounds.h"
+#include "ShapeTrainer.h"
 #include "stb_image.h"
 #include <cmath>
 #include <cfloat>
@@ -14,7 +15,8 @@ wxBEGIN_EVENT_TABLE(GLCanvas, wxGLCanvas)
     EVT_LEFT_UP(GLCanvas::OnMouseRelease)
 wxEND_EVENT_TABLE()
 
-GLCanvas::GLCanvas(wxWindow* parent, const wxGLAttributes& canvasAttrs)
+GLCanvas::GLCanvas(wxWindow* parent, const wxGLAttributes& canvasAttrs,
+                   ShapeTrainer* trainer)
     : wxGLCanvas(parent, canvasAttrs, wxID_ANY, wxDefaultPosition, wxDefaultSize),
       m_context(nullptr),
       m_glInitialized(false),
@@ -37,7 +39,8 @@ GLCanvas::GLCanvas(wxWindow* parent, const wxGLAttributes& canvasAttrs)
       m_borderVBO(0),
       m_rotation(0.0f),
       m_lastTime(0),
-      m_mousePos(0, 0) {
+      m_mousePos(0, 0),
+      m_trainer(trainer) {
 
     m_stopWatch.Start();
 
@@ -127,9 +130,17 @@ void GLCanvas::OnIdle(wxIdleEvent& event) {
     UpdateScaleAnimations(deltaTime);
     UpdateTranslationAnimations(deltaTime);
 
+    bool training = m_trainer && m_trainer->isTraining();
     for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
         auto& obj = m_sceneObjects[i];
-        if (obj.isAnchor) obj.spinAngle += obj.spinRate * deltaTime;
+        if (!obj.isAnchor) continue;
+        if (training) {
+            obj.spinAngle  += obj.spinRate * 8.0f * deltaTime;  // 8× fast spin
+            obj.hoverAmount = 1.0f;
+            obj.isHovered   = true;
+        } else {
+            obj.spinAngle += obj.spinRate * deltaTime;
+        }
     }
 
     Refresh(false);
@@ -151,6 +162,8 @@ void GLCanvas::LoadCursors() {
 }
 
 void GLCanvas::OnMouseMove(wxMouseEvent& event) {
+    if (m_trainer && m_trainer->isTraining()) { event.Skip(); return; }
+
     m_mousePos = event.GetPosition();
     glm::vec2 ndc = MouseToNDC(m_mousePos);
 
@@ -193,6 +206,8 @@ void GLCanvas::OnMouseMove(wxMouseEvent& event) {
 }
 
 void GLCanvas::OnMouseClick(wxMouseEvent& event) {
+    if (m_trainer && m_trainer->isTraining()) { event.Skip(); return; }
+
     glm::vec2 ndc = MouseToNDC(event.GetPosition());
 
     for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
@@ -1146,4 +1161,37 @@ void GLCanvas::RenderBorder(const MeshBounds::NDCRect& rect, glm::vec4 color) {
     glBindVertexArray(0);
     glLineWidth(1.0f);
     glEnable(GL_DEPTH_TEST);
+}
+
+std::vector<AnchorData> GLCanvas::CollectAnchorData() const {
+    std::vector<AnchorData> result;
+    for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
+        const auto& obj = m_sceneObjects[i];
+        if (!obj.isAnchor || !obj.model) continue;
+
+        AnchorData ad;
+        float w = m_mapBounds.maxX - m_mapBounds.minX;
+        float h = m_mapBounds.maxY - m_mapBounds.minY;
+        ad.lx = std::clamp((obj.position.x - m_mapBounds.minX) / w, 0.0f, 1.0f);
+        ad.ly = std::clamp((obj.position.y - m_mapBounds.minY) / h, 0.0f, 1.0f);
+
+        unsigned int vertexOffset = 0;
+        for (const auto& mesh : obj.model->getMeshes()) {
+            for (const auto& v : mesh.vertices) {
+                ad.vertices.push_back(v.position.x);
+                ad.vertices.push_back(v.position.y);
+                ad.vertices.push_back(v.position.z);
+            }
+            for (auto idx : mesh.indices)
+                ad.indices.push_back(idx + vertexOffset);
+            vertexOffset += static_cast<unsigned int>(mesh.vertices.size());
+        }
+
+        size_t numVerts = ad.vertices.size() / 3;
+        if (numVerts != 1363)
+            wxLogWarning("Anchor %zu: expected 1363 verts, got %zu", i, numVerts);
+
+        result.push_back(std::move(ad));
+    }
+    return result;
 }

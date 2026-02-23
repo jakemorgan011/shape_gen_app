@@ -73,6 +73,14 @@ endif()
 add_subdirectory(external/rtaudio EXCLUDE_FROM_ALL)
 
 # ============================================================================
+# libtorch - In-App Neural Network Training
+# ============================================================================
+set(CMAKE_PREFIX_PATH "${CMAKE_CURRENT_SOURCE_DIR}/external/libtorch" ${CMAKE_PREFIX_PATH})
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
+# ============================================================================
 # Main Application
 # ============================================================================
 add_executable(${PROJECT_NAME}
@@ -87,6 +95,12 @@ add_executable(${PROJECT_NAME}
     src/ModelLoader.h
     src/MeshBounds.cpp
     src/MeshBounds.h
+    src/ShapeTrainer.cpp
+    src/ShapeTrainer.h
+    src/ExploreFrame.cpp
+    src/ExploreFrame.h
+    src/ExploreCanvas.cpp
+    src/ExploreCanvas.h
 )
 
 target_include_directories(${PROJECT_NAME}
@@ -115,6 +129,9 @@ target_link_libraries(${PROJECT_NAME}
 
         # RtAudio
         rtaudio
+
+        # libtorch
+        "${TORCH_LIBRARIES}"
 )
 
 # Platform-specific configurations
@@ -129,6 +146,21 @@ if(APPLE)
             "-framework CoreAudio"
             "-framework CoreFoundation"
     )
+
+    # Ensure Frameworks dir exists before copying
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Frameworks/")
+
+    file(GLOB TORCH_DYLIBS "${CMAKE_CURRENT_SOURCE_DIR}/external/libtorch/lib/*.dylib")
+    foreach(DYLIB ${TORCH_DYLIBS})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DYLIB}"
+                "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Frameworks/")
+    endforeach()
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND install_name_tool -add_rpath "@executable_path/../Frameworks"
+            "$<TARGET_FILE:${PROJECT_NAME}>")
 elseif(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE TRUE
