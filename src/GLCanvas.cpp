@@ -131,7 +131,7 @@ void GLCanvas::OnIdle(wxIdleEvent& event) {
     UpdateTranslationAnimations(deltaTime);
 
     bool training = m_trainer && m_trainer->isTraining();
-    for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
+    for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
         auto& obj = m_sceneObjects[i];
         if (!obj.isAnchor) continue;
         if (training) {
@@ -176,7 +176,7 @@ void GLCanvas::OnMouseMove(wxMouseEvent& event) {
     }
 
     // Hover detection: scale up + flag for shader brightening
-    for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
+    for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
         auto& obj = m_sceneObjects[i];
         if (!obj.isAnchor) continue;
 
@@ -210,7 +210,7 @@ void GLCanvas::OnMouseClick(wxMouseEvent& event) {
 
     glm::vec2 ndc = MouseToNDC(event.GetPosition());
 
-    for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
+    for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
         auto& obj = m_sceneObjects[i];
         if (!obj.isAnchor) continue;
 
@@ -545,50 +545,56 @@ void GLCanvas::RenderToFramebuffer() {
 
     glm::mat4 identity = glm::mat4(1.0f);
 
-    // --- Menu (index 0): textured shader, NDC mode ---
+    // --- UI objects (isAnchor == false): textured shader, NDC mode ---
     glUseProgram(m_shaderProgram);
     glUniformMatrix4fv(glGetUniformLocation(m_shaderProgram, "view"),       1, GL_FALSE, glm::value_ptr(identity));
     glUniformMatrix4fv(glGetUniformLocation(m_shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(identity));
     glUniform1i(glGetUniformLocation(m_shaderProgram, "uNDCMode"), GL_TRUE);
 
-    {
-        auto& obj = m_sceneObjects[0];
-        if (obj.model) {
-            glm::mat4 modelMatrix = glm::mat4(1.0f);
-            modelMatrix = glm::translate(modelMatrix, obj.position);
-            modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            modelMatrix = glm::scale(modelMatrix, GetScaledSize(0));
-            glUniformMatrix4fv(glGetUniformLocation(m_shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-            obj.model->draw(m_shaderProgram);
-        }
+    for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
+        auto& obj = m_sceneObjects[i];
+        if (obj.isAnchor || !obj.model) continue;  // skip anchors here
+
+        glm::mat4 modelMatrix = glm::mat4(1.0f);
+        modelMatrix = glm::translate(modelMatrix, obj.position);
+        modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        modelMatrix = glm::scale(modelMatrix, GetScaledSize(i));
+        glUniformMatrix4fv(glGetUniformLocation(m_shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+        obj.model->draw(m_shaderProgram);
     }
 
-    // --- Anchor objects (indices 1+): toon shader, NDC mode, always on top ---
-    if (m_sceneObjects.size() > 1) {
-        glDepthFunc(GL_ALWAYS);  // render on top of menu regardless of Z
+    // --- Anchor objects (isAnchor == true): toon shader, NDC mode, always on top ---
+    {
+        bool hasAnchors = false;
+        for (const auto& obj : m_sceneObjects)
+            if (obj.isAnchor) { hasAnchors = true; break; }
 
-        glUseProgram(m_toonShaderProgram);
-        glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "view"),       1, GL_FALSE, glm::value_ptr(identity));
-        glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(identity));
+        if (hasAnchors) {
+            glDepthFunc(GL_ALWAYS);  // render on top of UI regardless of Z
 
-        float currentTime = static_cast<float>(m_stopWatch.TimeInMicro().ToLong()) / 1000000.0f;
-        glUniform1f(glGetUniformLocation(m_toonShaderProgram, "uTime"), currentTime);
+            glUseProgram(m_toonShaderProgram);
+            glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "view"),       1, GL_FALSE, glm::value_ptr(identity));
+            glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(identity));
 
-        for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
-            auto& obj = m_sceneObjects[i];
-            if (!obj.model) continue;
+            float currentTime = static_cast<float>(m_stopWatch.TimeInMicro().ToLong()) / 1000000.0f;
+            glUniform1f(glGetUniformLocation(m_toonShaderProgram, "uTime"), currentTime);
 
-            glm::mat4 modelMatrix = glm::mat4(1.0f);
-            modelMatrix = glm::translate(modelMatrix, obj.position);
-            modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-            modelMatrix = glm::rotate(modelMatrix, obj.spinAngle, obj.spinAxis);
-            modelMatrix = glm::scale(modelMatrix, GetScaledSize(i));
-            glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
-            glUniform1f(glGetUniformLocation(m_toonShaderProgram, "uHover"), obj.hoverAmount);
-            obj.model->draw(m_toonShaderProgram);
+            for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
+                auto& obj = m_sceneObjects[i];
+                if (!obj.isAnchor || !obj.model) continue;
+
+                glm::mat4 modelMatrix = glm::mat4(1.0f);
+                modelMatrix = glm::translate(modelMatrix, obj.position);
+                modelMatrix = glm::rotate(modelMatrix, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+                modelMatrix = glm::rotate(modelMatrix, obj.spinAngle, obj.spinAxis);
+                modelMatrix = glm::scale(modelMatrix, GetScaledSize(i));
+                glUniformMatrix4fv(glGetUniformLocation(m_toonShaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(modelMatrix));
+                glUniform1f(glGetUniformLocation(m_toonShaderProgram, "uHover"), obj.hoverAmount);
+                obj.model->draw(m_toonShaderProgram);
+            }
+
+            glDepthFunc(GL_LESS);
         }
-
-        glDepthFunc(GL_LESS);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -967,7 +973,8 @@ glm::vec3 GLCanvas::GetScaledSize(size_t objectIndex) {
 // Anchor plane helpers
 // ---------------------------------------------------------------------------
 
-// Loads the four anchor meshes and places them inside the L-shaped menu.
+// Loads anchor meshes from meshPaths and places them inside the L-shaped menu.
+// Adding more paths to meshPaths automatically creates additional anchor slots.
 //
 // Menu NDC transform (identity view/proj, rotate -90° X, then scale):
 //   NDC.x = menu.pos.x + v.x * menu.scale.x
@@ -976,9 +983,22 @@ glm::vec3 GLCanvas::GetScaledSize(size_t objectIndex) {
 // The L has a vertical arm on the left and a horizontal base at the bottom.
 // We find the inner corner at runtime by sampling vertex extents in each half.
 void GLCanvas::InitAnchorObjects() {
-    if (m_sceneObjects.empty()) return;
+    // --- List of anchor meshes: add more paths here to extend the system ---
+    const std::vector<std::string> meshPaths = {
+        "assets/meshes/rndy.obj",
+        "assets/meshes/spky.obj",
+        "assets/meshes/strchy.obj",
+        "assets/meshes/Gatomon.obj"
+    };
 
-    const auto& menu = m_sceneObjects[0];
+    if (m_sceneObjects.empty() || meshPaths.empty()) return;
+
+    // Find first UI (non-anchor) object to use as the menu reference
+    const SceneObject* menuPtr = nullptr;
+    for (const auto& obj : m_sceneObjects)
+        if (!obj.isAnchor && obj.model) { menuPtr = &obj; break; }
+    if (!menuPtr) return;
+    const auto& menu = *menuPtr;
 
     // --- Compute L-shape geometry via MeshBounds ---
     auto xzb    = MeshBounds::ComputeXZBounds(*menu.model);
@@ -993,50 +1013,55 @@ void GLCanvas::InitAnchorObjects() {
     float baseTopY  = menu.position.y + corner.baseTopZ  * menu.scale.z;
 
     // Map = the NDC region NOT occupied by the L-shape (upper-right cutout).
-    // Right and top edges align with the actual screen edges, so pin them to ±1.
     m_mapBounds = { armRightX, 1.0f, baseTopY, 1.0f };
 
-    // Arm (left column): NDC X ∈ [ndcMinX, armRightX], full Y height
-    float armCX = (ndcMinX + armRightX) * 0.5f;
-    // Base (bottom row): full X width, NDC Y ∈ [ndcMinY, baseTopY]
-    float baseCY = (ndcMinY + baseTopY) * 0.5f;
+    float armCX  = (ndcMinX + armRightX) * 0.5f;   // arm column centre X
+    float baseCY = (ndcMinY + baseTopY)  * 0.5f;   // base row centre Y
 
-    // Upper arm (above base junction) — 2 slots stacked
     float upperH  = ndcMaxY - baseTopY;
-    float armY0   = baseTopY + upperH * 0.67f;  // upper slot centre
-    float armY1   = baseTopY + upperH * 0.33f;  // lower slot centre
-
-    // Right base (right of arm junction) — 2 slots side by side
     float rightW  = ndcMaxX - armRightX;
-    float baseX0  = armRightX + rightW * 0.33f;  // left slot centre
-    float baseX1  = armRightX + rightW * 0.67f;  // right slot centre
-
-    const glm::vec2 positions[4] = {
-        { armCX,  armY0  },   // upper vertical arm
-        { armCX,  armY1  },   // lower vertical arm
-        { baseX0, baseCY },   // left horizontal base
-        { baseX1, baseCY },   // right horizontal base
-    };
-
-    // Scale: fit each object's largest extent into its slot
-    // Arm slot size ≈ armWidth × upperH/2; base slot ≈ rightW/2 × baseHeight
     float armWidth   = armRightX - ndcMinX;
     float baseHeight = baseTopY  - ndcMinY;
-    float slotDim    = std::min({ armWidth, upperH * 0.5f, rightW * 0.5f, baseHeight });
+
+    // --- Dynamic slot layout: ceil(N/2) in arm, floor(N/2) in base ---
+    int nTotal = static_cast<int>(meshPaths.size());
+    int nArm   = (nTotal + 1) / 2;
+    int nBase  = nTotal - nArm;
+
+    // Slots in the arm (stacked top-to-bottom using spacing formula (N-k)/(N+1))
+    // Slots in the base (spread left-to-right using spacing formula (k+1)/(N+1))
+    std::vector<glm::vec2> slotPositions;
+    slotPositions.reserve(nTotal);
+
+    for (int k = 0; k < nArm; ++k) {
+        float frac = (float)(nArm - k) / (float)(nArm + 1);
+        slotPositions.push_back({ armCX, baseTopY + upperH * frac });
+    }
+    for (int k = 0; k < nBase; ++k) {
+        float frac = (float)(k + 1) / (float)(nBase + 1);
+        slotPositions.push_back({ armRightX + rightW * frac, baseCY });
+    }
+
+    // Slot size: each slot gets its equal share of arm height / base width
+    float armSlotH  = upperH  / (float)std::max(nArm,  1);
+    float baseSlotW = rightW  / (float)std::max(nBase, 1);
+    float slotDim   = std::min({ armWidth, armSlotH * 0.5f, baseSlotW * 0.5f, baseHeight });
     float targetHalfSize = slotDim * 0.5f * 0.75f;
 
-    const char* meshPaths[4] = {
-        "assets/meshes/rndy.obj",
-        "assets/meshes/spky.obj",
-        "assets/meshes/strchy.obj",
-        "assets/meshes/Gatomon.obj"
+    // Spin rate/axis table — cycles for any number of objects
+    static const float kSpinRates[] = { 0.6f, 1.1f, 0.4f, 0.85f, 0.75f, 1.2f, 0.5f, 0.9f };
+    static const int   kSpinN = (int)(sizeof(kSpinRates) / sizeof(kSpinRates[0]));
+    // Axis pairs (x, z) — normalised at use; y=1 always keeps things upright-ish
+    static const float kAxisXZ[][2] = {
+        {0.0f, 0.3f}, {0.2f, 0.2f}, {0.0f, 1.0f}, {0.4f, 0.0f},
+        {0.1f, 0.5f}, {0.3f, 0.1f}, {0.0f, 0.0f}, {0.2f, 0.3f},
     };
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < nTotal; ++i) {
         SceneObject obj;
         obj.model = std::make_unique<ModelLoader>();
         if (!obj.model->loadModel(meshPaths[i])) {
-            wxLogError("Failed to load anchor mesh: %s", meshPaths[i]);
+            wxLogError("Failed to load anchor mesh: %s", meshPaths[i].c_str());
             continue;
         }
 
@@ -1053,13 +1078,13 @@ void GLCanvas::InitAnchorObjects() {
         float maxExtent = std::max(mxX - mnX, mxZ - mnZ);
         float s = (maxExtent > 0.0f) ? (2.0f * targetHalfSize) / maxExtent : 1.0f;
 
-        // Center the object's mesh on its target position
+        // Center the object's mesh on its slot position
         float meshCX = (mnX + mxX) * 0.5f;
         float meshCZ = (mnZ + mxZ) * 0.5f;
 
-        obj.position  = glm::vec3(positions[i].x - meshCX * s,
-                                  positions[i].y - meshCZ * s, 0.0f);
-        obj.homePos   = obj.position;  // snap-back target for drag & drop
+        obj.position  = glm::vec3(slotPositions[i].x - meshCX * s,
+                                  slotPositions[i].y - meshCZ * s, 0.0f);
+        obj.homePos   = obj.position;  // snap-back target when dragged off map
         obj.targetPos = obj.position;
         obj.scale     = glm::vec3(s);
         obj.rotation  = glm::vec3(0.0f);
@@ -1067,19 +1092,13 @@ void GLCanvas::InitAnchorObjects() {
         obj.targetScaleMultiplier       = 1.0f;
         obj.currentTranslationMultiplier = 1.0f;
         obj.targetTranslationMultiplier  = 1.0f;
-        obj.isAnchor  = true;
+        obj.isAnchor  = true;   // tag: participates in latent-space training
         obj.meshMinX  = mnX; obj.meshMaxX = mxX;
         obj.meshMinZ  = mnZ; obj.meshMaxZ = mxZ;
 
-        constexpr float spinRates[4] = { 0.6f, 1.1f, 0.4f, 0.85f };
-        const glm::vec3 spinAxes[4]  = {
-            glm::normalize(glm::vec3(0.0f, 1.0f, 0.3f)),
-            glm::normalize(glm::vec3(0.2f, 1.0f, 0.2f)),
-            glm::normalize(glm::vec3(0.0f, 0.0f, 1.0f)),
-            glm::normalize(glm::vec3(0.4f, 1.0f, 0.0f)),
-        };
-        obj.spinRate  = spinRates[i];
-        obj.spinAxis  = spinAxes[i];
+        int t = i % kSpinN;
+        obj.spinRate  = kSpinRates[t];
+        obj.spinAxis  = glm::normalize(glm::vec3(kAxisXZ[t][0], 1.0f, kAxisXZ[t][1]));
         obj.spinAngle = 0.0f;
 
         m_sceneObjects.push_back(std::move(obj));
@@ -1165,9 +1184,17 @@ void GLCanvas::RenderBorder(const MeshBounds::NDCRect& rect, glm::vec4 color) {
 
 std::vector<AnchorData> GLCanvas::CollectAnchorData() const {
     std::vector<AnchorData> result;
-    for (size_t i = 1; i < m_sceneObjects.size(); ++i) {
+    for (size_t i = 0; i < m_sceneObjects.size(); ++i) {
         const auto& obj = m_sceneObjects[i];
+        // Only include objects tagged as anchors (excludes UI elements like menu)
         if (!obj.isAnchor || !obj.model) continue;
+
+        // Only include anchors currently placed inside the map region
+        bool inMap = obj.position.x >= m_mapBounds.minX &&
+                     obj.position.x <= m_mapBounds.maxX &&
+                     obj.position.y >= m_mapBounds.minY &&
+                     obj.position.y <= m_mapBounds.maxY;
+        if (!inMap) continue;
 
         AnchorData ad;
         float w = m_mapBounds.maxX - m_mapBounds.minX;
@@ -1186,10 +1213,6 @@ std::vector<AnchorData> GLCanvas::CollectAnchorData() const {
                 ad.indices.push_back(idx + vertexOffset);
             vertexOffset += static_cast<unsigned int>(mesh.vertices.size());
         }
-
-        size_t numVerts = ad.vertices.size() / 3;
-        if (numVerts != 1363)
-            wxLogWarning("Anchor %zu: expected 1363 verts, got %zu", i, numVerts);
 
         result.push_back(std::move(ad));
     }

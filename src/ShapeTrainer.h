@@ -12,14 +12,9 @@
 #include <mutex>
 #include <atomic>
 #include <random>
+#include "AnchorData.h"
 
 wxDECLARE_EVENT(EVT_TRAINING_COMPLETE, wxCommandEvent);
-
-struct AnchorData {
-    float lx, ly;                       // [0,1] latent coords
-    std::vector<float>        vertices; // flattened xyz, size = numVerts*3
-    std::vector<unsigned int> indices;  // triangle indices (shared topology)
-};
 
 struct ShapeNetImpl : torch::nn::Module {
     torch::nn::Sequential net{nullptr};
@@ -39,7 +34,7 @@ TORCH_MODULE(ShapeNet);
 
 class ShapeTrainer {
 public:
-    ShapeTrainer(wxEvtHandler* completionTarget, int numVertices = 1363);
+    ShapeTrainer(wxEvtHandler* completionTarget, int numVertices = 0);
     ~ShapeTrainer();
 
     bool startTraining(std::vector<AnchorData> anchors);

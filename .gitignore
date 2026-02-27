@@ -5,3 +5,4 @@ cmake-build-*/
 external/
 .idea/
 .claude/
+Info.plist.in

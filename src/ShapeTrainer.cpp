@@ -29,6 +29,15 @@ bool ShapeTrainer::startTraining(std::vector<AnchorData> anchors) {
     if (!anchors.empty())
         m_meshIndices = anchors[0].indices;
 
+    // Infer actual vertex count from anchor data (avoids hardcoded mismatch with Assimp output)
+    if (!anchors.empty() && !anchors[0].vertices.empty())
+        m_numVertices = static_cast<int>(anchors[0].vertices.size() / 3);
+
+    if (m_numVertices <= 0) {
+        wxLogError("ShapeTrainer: no valid anchor vertex data, aborting training.");
+        return false;
+    }
+
     m_isTraining.store(true);
     {
         std::lock_guard<std::mutex> lock(m_modelMutex);

@@ -115,7 +115,7 @@ void ExploreCanvas::OnIdle(wxIdleEvent& event) {
     float dt = std::clamp((now - m_lastTime) / 1000.0f, 0.0f, 0.1f);
     m_lastTime = now;
 
-    m_rotation += 0.015f * dt;
+    m_rotation += 0.045f * dt;
 
     const float SPEED = 0.4f;
     bool moved = false;
@@ -582,7 +582,7 @@ void ExploreCanvas::RenderPointCloud() {
 
     glUseProgram(m_pcShader);
 
-    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 model = glm::rotate(glm::mat4(1.0f), m_rotation, glm::vec3(0.0f, 1.0f, 0.0f));
     glUniformMatrix4fv(glGetUniformLocation(m_pcShader, "model"),
                        1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(glGetUniformLocation(m_pcShader, "view"),

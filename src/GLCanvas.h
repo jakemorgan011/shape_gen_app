@@ -10,7 +10,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "ModelLoader.h"
 #include "MeshBounds.h"
-#include "ShapeTrainer.h"
+#include "AnchorData.h"
+class ShapeTrainer;
 #include <memory>
 
 class GLCanvas : public wxGLCanvas {

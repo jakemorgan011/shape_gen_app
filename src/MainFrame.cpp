@@ -13,7 +13,7 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(const wxString& title)
-    : wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(1024, 768)) {
+    : wxFrame(nullptr, wxID_ANY, title, wxPoint(100, 100), wxSize(1024, 768)) {
 
     wxMenu* menuFile = new wxMenu;
     menuFile->Append(wxID_EXIT, "E&xit\tAlt-X", "Quit this program");
@@ -26,7 +26,7 @@ MainFrame::MainFrame(const wxString& title)
     menuBar->Append(menuHelp, "&Help");
     SetMenuBar(menuBar);
 
-    m_trainer = std::make_shared<ShapeTrainer>(this, 1363);
+    m_trainer = std::make_shared<ShapeTrainer>(this);  // numVerts inferred from anchor data at training time
 
     wxGLAttributes vAttrs;
     vAttrs.PlatformDefaults().RGBA().DoubleBuffer().Depth(24).EndList();
@@ -44,6 +44,11 @@ MainFrame::MainFrame(const wxString& title)
     m_audioEngine->start();
 
     m_exploreFrame = new ExploreFrame(this, m_trainer.get());
+
+    // Position ExploreFrame to the right of MainFrame so they don't overlap
+    wxRect mainRect = GetRect();
+    m_exploreFrame->SetPosition(wxPoint(mainRect.GetRight() + 10, mainRect.GetTop()));
+
     m_exploreFrame->Show(true);
 }
 
@@ -66,7 +71,7 @@ void MainFrame::OnTrain(wxCommandEvent& /*event*/) {
     if (!m_trainer || m_trainer->isTraining()) return;
 
     std::vector<AnchorData> anchors = m_glCanvas->CollectAnchorData();
-    if (anchors.size() != 4) return;
+    if (anchors.size() < 2) return;  // need at least 2 in-map anchors to train
 
     m_trainButton->Disable();
     m_trainButton->SetLabel("Training...");
