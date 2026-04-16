@@ -68,21 +68,21 @@ void ShapeTrainer::trainLoop(std::vector<AnchorData> anchors) {
         std::vector<float> vVec;
         vVec.reserve(N * m_numVertices * 3);
         for (const auto& a : anchors) {
-            for (float f : a.vertices)
-                vVec.push_back(f);
-            // Pad or truncate to exactly numVerts*3 if needed
             int expected = m_numVertices * 3;
-            int got = static_cast<int>(a.vertices.size());
-            for (int k = got; k < expected; ++k)
+            int got      = static_cast<int>(a.vertices.size());
+            int toCopy   = std::min(got, expected);
+            for (int k = 0; k < toCopy; ++k)
+                vVec.push_back(a.vertices[k]);
+            for (int k = toCopy; k < expected; ++k)
                 vVec.push_back(0.0f);
         }
         torch::Tensor v_targets_3d = torch::from_blob(vVec.data(),
             {N, m_numVertices, 3}).clone();
 
         torch::optim::Adam optimizer(m_model->parameters(),
-            torch::optim::AdamOptions(1e-3));
+            torch::optim::AdamOptions(3e-4));
 
-        for (int epoch = 0; epoch < 2000; ++epoch) {
+        for (int epoch = 0; epoch < 1000; ++epoch) {
             optimizer.zero_grad();
 
             torch::Tensor pred = m_model->forward(xy_targets);  // [N, numVerts, 3]

@@ -101,6 +101,11 @@ add_executable(${PROJECT_NAME}
     src/ExploreFrame.h
     src/ExploreCanvas.cpp
     src/ExploreCanvas.h
+    src/tinyosc.h
+    src/tinyosc.c
+    src/OSCSender.h
+    src/OSCSender.cpp
+    src/geo/analysis.h
 )
 
 target_include_directories(${PROJECT_NAME}

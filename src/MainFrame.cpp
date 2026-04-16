@@ -43,6 +43,8 @@ MainFrame::MainFrame(const wxString& title)
     m_audioEngine->initialize();
     m_audioEngine->start();
 
+    m_analysisEngine = std::make_unique<AnalysisEngine>();
+
     m_exploreFrame = new ExploreFrame(this, m_trainer.get());
 
     // Position ExploreFrame to the right of MainFrame so they don't overlap

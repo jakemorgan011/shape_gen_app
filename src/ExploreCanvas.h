@@ -6,6 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <vector>
+#include "geo/analysis.h"
+#include "OSCSender.h"
 
 class ShapeTrainer;
 
@@ -82,6 +84,10 @@ private:
     float m_rotation = 0.0f;
     wxStopWatch m_stopWatch;
     long  m_lastTime = 0;
+    
+    AnalysisEngine m_analysis;
+
+    OSCSender osc;
 
     wxDECLARE_EVENT_TABLE();
 };

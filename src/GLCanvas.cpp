@@ -525,9 +525,6 @@ void GLCanvas::Render() {
     RenderToFramebuffer();
     RenderFramebufferToScreen();
 
-    // Draw debug overlays directly to screen — bypasses post-process pixelation
-    if (m_glInitialized)
-        RenderBorder(m_mapBounds, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 }
 
 void GLCanvas::RenderToFramebuffer() {

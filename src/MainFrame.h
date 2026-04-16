@@ -3,6 +3,7 @@
 #include <wx/wx.h>
 #include "GLCanvas.h"
 #include "AudioEngine.h"
+#include "geo/analysis.h"
 #include <memory>
 
 class ShapeTrainer;
@@ -25,6 +26,7 @@ private:
 
     GLCanvas*    m_glCanvas  = nullptr;
     std::unique_ptr<AudioEngine> m_audioEngine;
+    std::unique_ptr<AnalysisEngine> m_analysisEngine;
 
     std::shared_ptr<ShapeTrainer> m_trainer;
     ExploreFrame* m_exploreFrame = nullptr;

@@ -16,8 +16,7 @@ wxBEGIN_EVENT_TABLE(ExploreCanvas, wxGLCanvas)
 wxEND_EVENT_TABLE()
 
 ExploreCanvas::ExploreCanvas(wxWindow* parent,
-                              const wxGLAttributes& canvasAttrs,
-                              ShapeTrainer* trainer)
+                              const wxGLAttributes& canvasAttrs, ShapeTrainer* trainer)
     : wxGLCanvas(parent, canvasAttrs, wxID_ANY,
                  wxDefaultPosition, wxDefaultSize,
                  wxWANTS_CHARS)
@@ -168,6 +167,14 @@ void ExploreCanvas::UpdatePointCloud() {
 
     m_lastMeshData  = verts;
     m_pcVertexCount = static_cast<int>(verts.size()) / 3;
+
+
+    // this could break everything because it does like 20 computations inside the update
+    m_analysis.clear_meshes();
+    m_analysis.add_mesh(m_lastMeshData);
+    m_analysis.update_stats();
+    osc.send(m_analysis);
+    // destroy everything if this doesn't work
 
     glBindBuffer(GL_ARRAY_BUFFER, m_pcVBO);
     glBufferData(GL_ARRAY_BUFFER,
@@ -490,7 +497,7 @@ void ExploreCanvas::CreatePointCloudResources() {
             else if (intensity > 0.1)
                 color = vec3(0.72, 0.92, 1.00);   // light blue
             else
-                color = vec3(0.25, 0.62, 0.92);   // medium blue
+                color = vec3(0.25, 0.25, 0.25);   // medium blue
 
             FragColor = vec4(color, 1.0);
         }
@@ -590,6 +597,8 @@ void ExploreCanvas::RenderPointCloud() {
     glUniformMatrix4fv(glGetUniformLocation(m_pcShader, "projection"),
                        1, GL_FALSE, glm::value_ptr(m_projection));
 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     glBindVertexArray(m_pcVAO);
     if (m_pcIndexCount > 0) {
         glDrawElements(GL_TRIANGLES, m_pcIndexCount, GL_UNSIGNED_INT, nullptr);
@@ -598,6 +607,7 @@ void ExploreCanvas::RenderPointCloud() {
         glDrawArrays(GL_POINTS, 0, m_pcVertexCount);
     }
     glBindVertexArray(0);
+    glDisable(GL_CULL_FACE);
 }
 
 void ExploreCanvas::RenderCursor() {
